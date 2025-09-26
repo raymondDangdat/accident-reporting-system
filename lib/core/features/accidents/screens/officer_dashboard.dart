@@ -1,28 +1,63 @@
 import 'package:ars/core/features/accidents/screens/report_accident_screen.dart';
+import 'package:ars/core/utils/functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../widgets/custom_snack_bar.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'accident_details_screen.dart';
 
 class OfficerDashboard extends StatelessWidget {
   const OfficerDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    final authProvider = Provider.of<AppAuthProvider>(context);
+
+    Future<void> _confirmLogout(BuildContext context, {required AppAuthProvider authProvider}) async {
+      final shouldDelete = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Confirm Logout"),
+          content: Text("Are you sure you want to logout?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Yes"),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldDelete == true) {
+        await authProvider.logout();
+        if (context.mounted) {
+          context.go('/login');
+        }
+        customSnackBar(context, "Logout successfully",
+            isError: false);
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Officer Dashboard"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.red,),
             onPressed: () async {
-              await authProvider.logout();
-              if (context.mounted) context.go('/login');
+              _confirmLogout(context, authProvider: authProvider);
             },
           )
         ],
@@ -92,9 +127,17 @@ class _MyReportsTab extends StatelessWidget {
             return Card(
               margin: const EdgeInsets.all(8),
               child: ListTile(
+                onTap: (){
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AccidentDetailsScreen(data: report),
+                    ),
+                  );
+                },
                 leading: const Icon(Icons.report, color: Colors.red),
                 title: Text("Accident at ${report['location'] ?? 'Unknown'}"),
-                subtitle: Text("Date: ${report['date'] ?? ''}"),
+                subtitle: Text("Date: ${formatDateTime(DateTime.parse(report['date'] ?? DateTime.now().toString()))}"),
               ),
             );
           },
